@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "./IERC20.sol";
 
 contract ERC20Forwarder {
     using ECDSA for bytes32;
@@ -25,7 +25,7 @@ contract ERC20Forwarder {
     // Маппинг для хранения nonce каждого пользователя
     mapping(address user => uint256) public nonces;
 
-    // Добавьте переменные для хранения информации о домене
+    // Переменные для хранения информации о домене
     bytes32 public DOMAIN_SEPARATOR;
 
     // Событие, вызываемое при успешном выполнении мета-транзакции
@@ -93,7 +93,7 @@ contract ERC20Forwarder {
         );
 
         require(
-            IERC20(tokenAddress).allowance(user, address(this)) >= supportedTokens[tokenAddress]._minAmount,
+            amount >= supportedTokens[tokenAddress]._minAmount,
             "ERC20Forwarder: Amount is less than the minimum required"
         );
 
@@ -129,7 +129,7 @@ contract ERC20Forwarder {
         }
     }
 
-    // Выполнение мета-транзакции с учетом комиссии
+    // Выполнение мета-транзакции с учетом комиссии и использованием permit
     function executeMetaTransaction(
         address user,
         address tokenAddress,
@@ -138,9 +138,22 @@ contract ERC20Forwarder {
         uint256 nonce,
         bytes32 sigR,
         bytes32 sigS,
-        uint8 sigV
+        uint8 sigV,
+        uint256 deadline,
+        uint8 permitV,
+        bytes32 permitR,
+        bytes32 permitS
     ) public payable {
-        // Верификация подписи
+        // Используем permit для разрешения на выполнение transferFrom без approve
+        IERC20(tokenAddress).permit(user, address(this), amount, deadline, permitV, permitR, permitS);
+
+        // Верификация подписи пользователя
+        require(
+            IERC20(tokenAddress).allowance(user, address(this)) >= amount,
+            "ERC20Forwarder: problem with allowance"
+        );
+
+        // Верификация подписи пользователя
         require(
             verify(user, tokenAddress, recipient, amount, nonce, sigR, sigS, sigV),
             "ERC20Forwarder: signature does not match"

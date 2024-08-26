@@ -135,7 +135,6 @@ contract ERC20Forwarder {
         address tokenAddress,
         address recipient,
         uint256 amount,
-        uint256 nonce,
         bytes32 sigR,
         bytes32 sigS,
         uint8 sigV,
@@ -152,6 +151,10 @@ contract ERC20Forwarder {
             IERC20(tokenAddress).allowance(user, address(this)) >= amount,
             "ERC20Forwarder: problem with allowance"
         );
+        
+        // Инкрементируем nonce пользователя
+        uint256 nonce = nonces[user];
+        nonces[user] += 1;    
 
         // Верификация подписи пользователя
         require(
@@ -159,8 +162,6 @@ contract ERC20Forwarder {
             "ERC20Forwarder: signature does not match"
         );
 
-        // Инкрементируем nonce пользователя
-        nonces[user] += 1;
 
         uint256 initialGas = gasleft();
 
